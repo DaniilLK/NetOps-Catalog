@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Network Solutions</title>
+    <link rel="stylesheet" href="/main.css">
+</head>
+<body>
+    <div class="page-wrapper">
+        <header class="navbar">
+            <div class="logo">NetOps <span>Catalog</span></div>
+            <nav>
+                <a href="#" onclick="renderHomePage(); return false;">Главная</a>
+                <a href="#" onclick="loadCatalog(); return false;" id="catalog-link">Каталог</a>
+                <a href="#" id="admin-link" onclick="loadAdminPanel(); return false;" style="display: none; color: var(--accent-crimson);">Панель управления</a>                
+                <a href="#" id="cart-link" class="cart-link" onclick="showCartModal(); return false;">
+                    Корзина <span id="cart-count" class="badge-red">0</span>
+                </a>
+                <a href="#" id="login-link" onclick="showAuthModal(); return false;">Вход / Регистрация</a>
+                <div id="user-menu" class="dropdown" style="display: none;">
+                    <a href="#" id="username-display" class="dropbtn">Пользователь ▼</a>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="loadProfile(); return false;">Профиль</a>
+                        <a href="#" onclick="logout(); return false;">Выйти</a>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main id="app-content">
+            <!-- Сюда динамически загружается контент -->
+        </main>
+
+        <footer class="footer-modern">
+            <div class="footer-cols">
+                <div class="f-col">
+                    <h4>О компании NetOps Catalog</h4>
+                    <p>Ведущий интегратор сетевой инфраструктуры. Проектирование, поставка и настройка оборудования корпоративного и операторского класса. Ваш надежный партнер в мире L2/L3 архитектуры и VXLAN фабрик.</p>
+                </div>
+                <div class="f-col">
+                    <h4>Решения</h4>
+                    <a href="#" onclick="loadCatalog('switches'); return false;">Коммутаторы ЦОД</a>
+                    <a href="#" onclick="loadCatalog('transceivers'); return false;">Оптические трансиверы</a>
+                    <a href="#" onclick="loadCatalog('cables'); return false;">Медные и AOC кабели</a>
+                    <a href="#" onclick="renderHomePage(); return false;">Вендоры</a>
+                </div>
+                <div class="f-col">
+                    <h4>Клиентам</h4>
+                    <a href="#">Документация и мануалы</a>
+                    <a href="#">Гарантийное обслуживание</a>
+                    <a href="#">Техническая поддержка 24/7</a>
+                    <a href="#">Политика возврата</a>
+                </div>
+                <div class="f-col">
+                    <h4>Наши контакты</h4>
+                    <p><strong>Email:</strong> support@netops.local</p>
+                    <p><strong>Телефон:</strong> +7 (495) 123-45-67</p>
+                    <p><strong>Адрес:</strong> г. Москва, Инновационный проезд, д. 10, Офис 404</p>
+                    <p><strong>Режим работы:</strong> Пн-Пт 9:00 - 18:00</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2026 NetOps Catalog. Все права защищены. Разработано для Enterprise Network Solutions.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Шаблон Главной Страницы -->
+    <template id="home-page-template">
+        <section class="hero">
+            <h1>Надежные сетевые решения для ЦОД</h1>
+            <p>Коммутаторы агрегации, высокоскоростные трансиверы и DAC-кабели от ведущих мировых вендоров.</p>
+            <button class="btn-primary" onclick="loadCatalog()">Перейти в каталог</button>
+        </section>
+
+        <section class="vendors-section" style="padding: 4rem 3rem; background: var(--bg-color);">
+            <h2 style="text-align: center; color: var(--accent-crimson); font-size: 2.2rem; margin-bottom: 3rem;">Наши партнеры</h2>
+            <div class="vendor-grid">
+                <div class="vendor-card" onclick="loadCatalog('', 'Cisco')">
+                    <h3>Cisco Systems</h3>
+                    <p>Золотой стандарт корпоративных сетей. Мощные решения линейки Nexus для центров обработки данных и интеграции SDN.</p>
+                </div>
+                <div class="vendor-card" onclick="loadCatalog('', 'Arista')">
+                    <h3>Arista Networks</h3>
+                    <p>Инновационные коммутаторы с EOS. Лидер в области высокой пропускной способности, низкой задержки и открытой маршрутизации.</p>
+                </div>
+                <div class="vendor-card" onclick="loadCatalog('', 'Huawei')">
+                    <h3>Huawei Enterprise</h3>
+                    <p>Оборудование CloudEngine с высочайшей плотностью портов и производительностью. Оптимальное соотношение цены и качества.</p>
+                </div>
+                <div class="vendor-card" onclick="loadCatalog('', 'Juniper')">
+                    <h3>Juniper Networks</h3>
+                    <p>Высоконадежные платформы на базе JunOS. Продвинутые возможности автоматизации и глубокой настройки политик безопасности.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>Виртуальное стендирование</h3>
+                <p>Проверка L2/L3 топологий и фабрик BGP EVPN VXLAN в изолированной лаборатории.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Мультивендорный подход</h3>
+                <p>Строим гибридные сети без жесткой привязки к одному производителю оборудования.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Готовые спецификации</h3>
+                <p>Предустановленные проверенные сборки ToR и Leaf/Spine инфраструктуры.</p>
+            </div>
+        </section>
+    </template>
+
+    <!-- Модальные окна -->
+    <div id="auth-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeAuthModal()">&times;</span>
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login', this)">Вход</button>
+                <button class="auth-tab" onclick="switchAuthTab('register', this)">Регистрация</button>
+            </div>
+            <form id="login-form" onsubmit="submitLogin(event)">
+                <div class="form-group"><label>Email</label><input type="email" id="login-email" required></div>
+                <div class="form-group"><label>Пароль</label><input type="password" id="login-password" required></div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Войти</button>
+            </form>
+            <form id="register-form" onsubmit="submitRegister(event)" style="display: none;">
+                <div class="form-group"><label>Ваш Email</label><input type="email" id="reg-email" required></div>
+                <div class="form-group">
+                    <label>Пароль</label>
+                    <input type="password" id="reg-password" required minlength="8">
+                    <small style="color: #777; display: block; margin-top: 5px;">Мин. 8 символов, хотя бы 1 буква и 1 цифра</small>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Зарегистрироваться</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="cart-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-btn" onclick="closeCartModal()">&times;</span>
+            <h2>Ваш заказ</h2>
+            <div id="cart-items-container"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; border-top: 2px solid var(--surface-light); padding-top: 1rem;">
+                <h3 style="margin: 0; color: var(--accent-crimson);">Итого: $<span id="cart-total-price">0</span></h3>
+                <button id="btn-checkout" class="btn-primary" onclick="openCheckoutModal()" style="display: none;">Оформить заказ</button>
+            </div>        
+        </div>
+    </div>
+
+    <div id="checkout-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="document.getElementById('checkout-modal').style.display='none'">&times;</span>
+            <h2>Оформление заказа</h2>
+            <form id="checkout-form" onsubmit="submitOrder(event)" style="display: grid; gap: 1rem; margin-top: 1rem;">
+                <div class="form-group"><label>Email</label><input type="email" id="checkout-email" required><small id="checkout-email-hint" style="display: none;">Берется из профиля</small></div>
+                <div class="form-group"><label>Телефон</label><input type="tel" id="checkout-phone" required></div>
+                <div class="form-group"><label>Адрес доставки</label><textarea id="checkout-address" rows="3" required></textarea></div>
+                <button type="submit" class="btn-primary">Подтвердить заказ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальные окна админа -->
+    <div id="admin-product-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close-btn" onclick="document.getElementById('admin-product-modal').style.display='none'">&times;</span>
+            <h2 id="admin-modal-title" style="margin-bottom: 1.5rem; color: var(--accent-crimson);">Редактор</h2>
+            <form id="admin-product-form" onsubmit="submitProduct(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <input type="hidden" id="prod-id">
+                <div class="form-group"><label>Вендор</label><select id="prod-vendor" required><option value="Cisco">Cisco</option><option value="Arista">Arista</option><option value="Huawei">Huawei</option><option value="Juniper">Juniper</option></select></div>
+                <div class="form-group"><label>Категория</label><select id="prod-category" required><option value="1">Коммутаторы</option><option value="2">Трансиверы</option><option value="3">DAC / AOC кабели</option></select></div>
+                <div class="form-group"><label>Модель</label><input type="text" id="prod-model" required></div>
+                <div class="form-group"><label>Part Number</label><input type="text" id="prod-pn" required></div>
+                <div class="form-group" style="grid-column: 1 / -1;"><label>Описание</label><textarea id="prod-desc" rows="4" required></textarea></div>
+                <div class="form-group"><label>Цена ($)</label><input type="number" id="prod-price" step="0.01" required></div>
+                <div class="form-group">
+                    <label>Фотография</label>
+                    <input type="file" id="prod-image" accept="image/*" multiple>
+                    <small id="image-hint" style="display:none;">Пусто = не менять фото</small>
+                </div>
+                <button type="submit" class="btn-primary" style="grid-column: 1 / -1;">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="admin-user-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-btn" onclick="document.getElementById('admin-user-modal').style.display='none'">&times;</span>
+            <h2 style="margin-bottom: 1.5rem; color: var(--accent-crimson);">Редактировать пользователя</h2>
+            <form id="admin-user-form" onsubmit="submitUserEdit(event)" style="display: grid; gap: 1rem;">
+                <input type="hidden" id="edit-user-id">
+                <div class="form-group"><label>Email</label><input type="email" id="edit-user-email" required></div>
+                <div class="form-group"><label>Никнейм</label><input type="text" id="edit-user-username" required></div>
+                <div class="form-group">
+                    <label>Роль</label>
+                    <select id="edit-user-role" required>
+                        <option value="user">Пользователь</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Телефон</label><input type="tel" id="edit-user-phone"></div>
+                <div class="form-group"><label>Адрес</label><textarea id="edit-user-address" rows="2"></textarea></div>
+                <div class="form-group"><label>Новый пароль (пусто = не менять)</label><input type="password" id="edit-user-password"></div>
+                <button type="submit" class="btn-primary">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ШАБЛОН ДЛЯ СКЕЛЕТОНОВ (Заглушки при загрузке) -->
+    <template id="skeleton-template">
+        <div class="catalog-grid">
+            ${'<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>'.repeat(6)}
+        </div>
+    </template>
+
+     <!-- Контейнер Toast -->
+    <div id="toast-container"></div>
+
+    <!-- Кнопка "Вверх" -->
+    <button id="scrollToTopBtn" onclick="scrollToTop()" title="Наверх">↑</button>
+
+    <script src="/main.js"></script>
+</body>
+</html>
