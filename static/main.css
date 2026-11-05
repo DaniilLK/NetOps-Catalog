@@ -133,6 +133,7 @@ body {
 .f-col a { display: block; color: #aaa; text-decoration: none; margin-bottom: 0.8rem; font-size: 0.95rem; transition: color 0.2s; }
 .f-col a:hover { color: var(--accent-crimson); }
 .footer-bottom { text-align: center; border-top: 1px solid #333; padding-top: 1.5rem; font-size: 0.9rem; }
+.build-tag { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: #8a8a8a; letter-spacing: 0.3px; }
 
 /* Modals & Forms */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; }

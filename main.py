@@ -294,6 +294,20 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+# --- КЭШИРОВАНИЕ СТАТИКИ ---
+# StaticFiles не отдаёт Cache-Control, и браузер (особенно Chrome на Android)
+# может неделями показывать старую версию HTML/CSS/JS без ревалидации — после
+# деплоя на телефоне оставался прежний вид. no-cache = файл можно кэшировать,
+# но перед каждым использованием обязательна проверка по ETag (ответ 304).
+@app.middleware("http")
+async def static_cache_control(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith((".html", ".css", ".js", ".json")):
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
+
+
 # --- ЗАЩИТА ОТ CSRF (double-submit cookie + проверка Origin) ---
 @app.middleware("http")
 async def csrf_protection(request: Request, call_next):

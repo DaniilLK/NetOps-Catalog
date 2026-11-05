@@ -14,7 +14,7 @@
     <meta name="apple-mobile-web-app-title" content="NetOps">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
-    <link rel="stylesheet" href="/main.css">
+    <link rel="stylesheet" href="/main.css?v=3">
 </head>
 <body>
     <div class="page-wrapper">
@@ -72,6 +72,8 @@
             </div>
             <div class="footer-bottom">
                 <p>© 2026 NetOps Catalog. Все права защищены. Разработано для Enterprise Network Solutions.</p>
+                <!-- Метка сборки: помогает понять, какая версия файлов реально загрузилась на устройстве -->
+                <span class="build-tag">сборка 2026.11.05</span>
             </div>
         </footer>
     </div>
@@ -237,6 +239,6 @@
     <!-- Кнопка "Вверх" -->
     <button id="scrollToTopBtn" onclick="scrollToTop()" title="Наверх">↑</button>
 
-    <script src="/main.js"></script>
+    <script src="/main.js?v=3"></script>
 </body>
 </html>
