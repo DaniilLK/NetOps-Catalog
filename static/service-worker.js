@@ -2,7 +2,7 @@
 // Запросы к API (/api/*) и всё, что не GET, никогда не кэшируются —
 // иначе можно отдать пользователю чужие/устаревшие данные.
 
-const CACHE_NAME = 'netops-shell-v1';
+const CACHE_NAME = 'netops-shell-v2';
 
 const SHELL_ASSETS = [
     '/',
