@@ -174,3 +174,11 @@ Render сам выдаёт сертификат и редиректит HTTP →
 Вывод: `SECRET_KEY`, `COOKIE_SECURE=1`, `TRUST_PROXY_HEADERS=1` на сервисе заданы,
 новые middleware работают в проде. Лимит попыток входа хранится в памяти процесса,
 поэтому очищается при каждом рестарте/деплое сервиса.
+
+---
+
+## Android-приложение
+
+Сайт упакован в APK как **Trusted Web Activity** (Android Studio не нужна).
+Манифест, иконки, service worker и `assetlinks.json` уже в репозитории;
+пошаговая сборка в PWABuilder — в [`ANDROID.md`](ANDROID.md).
