@@ -1,0 +1,29 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec)
+#
+# Файл применяется, если сервис создаётся через "New +" -> "Blueprint".
+# Если сервис уже создан вручную, задайте те же переменные в Settings -> Environment в панели Render.
+services:
+  - type: web
+    name: netops-catalog
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # Render передаёт порт в $PORT, приложение должно слушать 0.0.0.0.
+    # --proxy-headers/--forwarded-allow-ips нужны, чтобы видеть реальный IP клиента за прокси Render.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    envVars:
+      # Секретный ключ подписи JWT: генерируется один раз и сохраняется между перезапусками.
+      # Без него ключ случайный, и все сессии слетают после засыпания/рестарта сервиса.
+      - key: SECRET_KEY
+        generateValue: true
+      # Сайт доступен по HTTPS -> cookie уходят только по HTTPS, включается HSTS.
+      - key: COOKIE_SECURE
+        value: "1"
+      # Брать IP клиента из X-Forwarded-For (иначе лимит попыток входа общий на весь прокси).
+      - key: TRUST_PROXY_HEADERS
+        value: "1"
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "120"
+      # Ограничение имён хостов (опционально). Раскомментируйте, если нет preview-доменов:
+      # - key: ALLOWED_HOSTS
+      #   value: netops-catalog.onrender.com

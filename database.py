@@ -1,7 +1,9 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'DataBase.db')
+# На хостинге с эфемерным диском (Render, Heroku) путь к БД можно вынести на постоянный диск:
+# DB_PATH=/var/data/DataBase.db
+DB_PATH = os.getenv("DB_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'DataBase.db')
 
 def get_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)

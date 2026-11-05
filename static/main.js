@@ -1,5 +1,44 @@
 let currentProducts = [];
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+// --- СОСТОЯНИЕ АВТОРИЗАЦИИ ---
+// Сам JWT живёт в httpOnly-cookie и из JS недоступен: состояние входа узнаём у сервера.
+let currentUser = null;      // { email, username, role } или null
+let authChecked = false;
+
+// CSRF-токен: cookie читается JS, значение уходит в заголовке X-CSRF-Token
+function getCsrfToken() {
+    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+// Единая обёртка fetch: same-origin cookie + CSRF-заголовок для изменяющих методов
+const nativeFetch = window.fetch.bind(window);
+window.fetch = function (url, options = {}) {
+    const opts = Object.assign({}, options);
+    opts.credentials = 'same-origin';
+    const method = (opts.method || 'GET').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const csrf = getCsrfToken();
+        if (csrf) {
+            const headers = new Headers(opts.headers || {});
+            if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', csrf);
+            opts.headers = headers;
+        }
+    }
+    return nativeFetch(url, opts);
+};
+
+// Безопасное чтение корзины из localStorage (защита от повреждённых данных)
+function loadCartFromStorage() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('cart'));
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        localStorage.removeItem('cart');
+        return [];
+    }
+}
+let cart = loadCartFromStorage();
 
 // Переменные для поиска и пагинации
 let currentCategory = '';
@@ -7,6 +46,7 @@ let currentVendor = '';
 let currentSearch = '';
 let currentPage = 1;
 let searchTimeout = null;
+let adminUsersCache = [];
 
 // --- КНОПКА ВВЕРХ ---
 window.addEventListener('scroll', () => {
@@ -38,15 +78,15 @@ function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.style.borderLeftColor = type === 'error' ? '#d32f2f' : 'var(--accent-crimson)';
-    
+
     const span = document.createElement('span');
     span.textContent = message;
     toast.appendChild(span);
-    
+
     container.appendChild(toast);
-    setTimeout(() => { 
-        toast.classList.add('fade-out'); 
-        setTimeout(() => toast.remove(), 300); 
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
 
@@ -77,20 +117,18 @@ function escapeHTML(str) {
 }
 
 async function fetchAuth(url, options = {}) {
-    const token = localStorage.getItem('access_token');
-    if (!options.headers) options.headers = {};
-    if (token) options.headers['Authorization'] = `Bearer ${token}`;
-    
-    try {
-        const res = await fetch(url, options);
-        if (res.status === 401) {
-            localStorage.clear();
-            showToast("Сессия истекла. Войдите заново.", "error");
-            setTimeout(() => window.location.reload(), 1500);
-            throw new Error("Unauthorized");
-        }
-        return res;
-    } catch (e) { throw e; }
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        currentUser = null;
+        authChecked = true;
+        updateAuthUI();
+        showToast("Сессия истекла. Войдите заново.", "error");
+        // Серверная очистка cookie (JS не может удалить httpOnly-cookie)
+        try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+        setTimeout(() => window.location.reload(), 1500);
+        throw new Error("Unauthorized");
+    }
+    return res;
 }
 
 // --- НАВИГАЦИЯ ---
@@ -100,18 +138,38 @@ function renderHomePage() {
 }
 
 // --- АВТОРИЗАЦИЯ И ПРОФИЛЬ ---
-function checkAuthStatus() {
-    const token = localStorage.getItem('access_token');
-    const role = localStorage.getItem('user_role');
-    const username = localStorage.getItem('username');
-    
-    document.getElementById('login-link').style.display = token ? 'none' : 'inline';
-    document.getElementById('user-menu').style.display = token ? 'inline-block' : 'none';
-    document.getElementById('admin-link').style.display = (token && role === 'admin') ? 'inline' : 'none';
-    
-    if (token && username) {
-        document.getElementById('username-display').textContent = username + ' ▼';
+function updateAuthUI() {
+    const loggedIn = !!currentUser;
+    document.getElementById('login-link').style.display = loggedIn ? 'none' : 'inline';
+    document.getElementById('user-menu').style.display = loggedIn ? 'inline-block' : 'none';
+    document.getElementById('admin-link').style.display = (loggedIn && currentUser.role === 'admin') ? 'inline' : 'none';
+
+    if (loggedIn) {
+        document.getElementById('username-display').textContent = currentUser.username + ' ▼';
     }
+}
+
+// Состояние входа определяет сервер: httpOnly-cookie из JS не прочитать
+async function checkAuthStatus() {
+    try {
+        const res = await fetch('/api/profile');
+        if (res.ok) {
+            const user = await res.json();
+            currentUser = { email: user.email, username: user.username, role: user.role || 'user' };
+        } else {
+            currentUser = null;
+        }
+    } catch (e) {
+        currentUser = null;
+    }
+    authChecked = true;
+    updateAuthUI();
+    return currentUser;
+}
+
+async function ensureAuthChecked() {
+    if (!authChecked) await checkAuthStatus();
+    return currentUser;
 }
 
 function showAuthModal() { document.getElementById('auth-modal').style.display = 'flex'; }
@@ -124,9 +182,11 @@ function switchAuthTab(tab, element) {
     if (element) element.classList.add('active');
 }
 
-function logout() {
-    localStorage.clear();
-    checkAuthStatus();
+async function logout() {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+    currentUser = null;
+    authChecked = true;
+    updateAuthUI();
     showToast("Вы успешно вышли из системы");
     renderHomePage();
 }
@@ -142,11 +202,10 @@ async function submitLogin(event) {
         });
         const data = await res.json();
         if (res.ok) {
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('user_role', data.role);
-            localStorage.setItem('username', data.username);
+            currentUser = { email: data.email, username: data.username, role: data.role };
+            authChecked = true;
             closeAuthModal();
-            checkAuthStatus();
+            updateAuthUI();
             showToast("Вход выполнен успешно!");
         } else {
             showToast(data.detail || "Ошибка входа", "error");
@@ -186,16 +245,16 @@ async function loadProfile() {
 
     try {
         const userRes = await fetchAuth(`/api/profile`);
-        if (!userRes.ok) return; 
+        if (!userRes.ok) return;
         const userData = await userRes.json();
-        
+
         const ordersRes = await fetchAuth(`/api/orders/user`);
         const orders = await ordersRes.json();
 
         let ordersHtml = orders.length === 0 ? '<p>У вас пока нет заказов.</p>' : '';
         orders.forEach(o => {
             const color = o.status === 'Отменен' ? 'red' : (o.status === 'В обработке' ? 'orange' : 'green');
-            const cancelBtn = o.status === 'В обработке' 
+            const cancelBtn = o.status === 'В обработке'
                 ? `<button class="btn-danger btn-sm" onclick="userCancelOrder(${o.id})">Отменить заказ</button>` : '';
             ordersHtml += `
                 <div style="border:1px solid #ddd; border-radius:6px; padding:1rem; margin-bottom:1rem; background:#fafafa;">
@@ -239,8 +298,7 @@ async function updateProfile(e) {
     try {
         const res = await fetchAuth('/api/profile', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         if (res.ok) {
-            localStorage.setItem('username', payload.username);
-            checkAuthStatus();
+            await checkAuthStatus();
             showToast('Профиль обновлен');
             loadProfile();
         } else {
@@ -263,6 +321,7 @@ function catActive(slug, current) { return slug === current ? 'active-filter' : 
 function venActive(name, current) { return name === current ? 'active-filter' : ''; }
 
 async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
+    await ensureAuthChecked();
     // Сохраняем состояние для поиска и пагинации
     currentCategory = category;
     currentVendor = vendor;
@@ -270,8 +329,8 @@ async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
     currentPage = page;
 
     const content = document.getElementById('app-content');
-    const isAdmin = localStorage.getItem('user_role') === 'admin';
-    
+    const isAdmin = !!(currentUser && currentUser.role === 'admin');
+
     // Показываем скелетоны при загрузке (если это не первая загрузка с фильтрами)
     if (!document.querySelector('.catalog-layout')) {
         const skeletonTemplate = document.getElementById('skeleton-template');
@@ -284,20 +343,20 @@ async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
             grid.innerHTML = skeletonTemplate.innerHTML;
         }
     }
-    
+
     try {
         let url = `/api/products?page=${page}&limit=12`;
         if (category) url += `&category_slug=${category}`;
         if (vendor) url += `&vendor=${vendor}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
-        
+
         const res = await fetch(url);
         const data = await res.json();
         currentProducts = data.items;
-        
+
         const catNames = { '': 'Все оборудование', 'switches': 'Коммутаторы', 'transceivers': 'Трансиверы', 'cables': 'Кабели' };
         const pageTitle = (catNames[category] || 'Каталог') + (vendor ? ` — ${vendor}` : '');
-        
+
         let html = `<div class="catalog-layout"><aside class="sidebar">
             <h3 style="color:var(--accent-crimson); border-bottom:1px solid #ddd; padding-bottom:10px;">Категории</h3>
             <ul style="list-style:none; padding:0; line-height:2;">
@@ -322,7 +381,7 @@ async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
                 </div>
             </div>
             <div class="catalog-grid">`;
-        
+
         if (isAdmin) {
             let cId = category === 'switches' ? '1' : (category === 'transceivers' ? '2' : (category === 'cables' ? '3' : '1'));
             html += `<div class="product-card" style="border: 2px dashed var(--accent-crimson); justify-content: center; align-items:center; cursor: pointer; background: var(--surface-light);" onclick="openAdminModal(null, '${vendor||'Cisco'}', '${cId}')">
@@ -336,20 +395,19 @@ async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
 
         currentProducts.forEach(p => {
             const imgSrc = p.image_url ? escapeHTML(p.image_url) : '';
-            const img = imgSrc 
-                ? `<img src="${imgSrc}" class="card-image-placeholder" style="cursor:pointer" onclick="showProductPage(${p.id})">` 
+            const img = imgSrc
+                ? `<img src="${imgSrc}" class="card-image-placeholder" style="cursor:pointer" onclick="showProductPage(${p.id})">`
                 : `<div class="card-image-placeholder" style="cursor:pointer" onclick="showProductPage(${p.id})">Нет фото</div>`;
-            
+
             const cItem = cart.find(i => i.id === p.id);
             const qty = cItem ? cItem.quantity : 0;
-            const safeModel = escapeHTML(p.model_name).replace(/'/g, "\\'");
-            
-            const btn = qty === 0 
-                ? `<button class="btn-primary btn-sm" onclick="changeQuantity(${p.id}, '${safeModel}', ${p.price}, 1)">В корзину</button>`
-                : `<div><button class="btn-primary btn-sm" onclick="changeQuantity(${p.id}, '${safeModel}', ${p.price}, -1)">-</button> <span style="font-weight:bold; margin:0 5px;">${qty}</span> <button class="btn-primary btn-sm" onclick="changeQuantity(${p.id}, '${safeModel}', ${p.price}, 1)">+</button></div>`;
-            
-            const adminBtns = isAdmin 
-                ? `<div style="margin-bottom:10px;"><button class="btn-primary btn-sm" style="background:#444; margin-right:5px;" onclick="openAdminModal(${p.id})">Изменить</button> <button class="btn-danger btn-sm" onclick="deleteProduct(${p.id})">Удалить</button></div>` 
+
+            const btn = qty === 0
+                ? `<button class="btn-primary btn-sm" onclick="changeQuantity(${p.id}, 1)">В корзину</button>`
+                : `<div><button class="btn-primary btn-sm" onclick="changeQuantity(${p.id}, -1)">-</button> <span style="font-weight:bold; margin:0 5px;">${qty}</span> <button class="btn-primary btn-sm" onclick="changeQuantity(${p.id}, 1)">+</button></div>`;
+
+            const adminBtns = isAdmin
+                ? `<div style="margin-bottom:10px;"><button class="btn-primary btn-sm" style="background:#444; margin-right:5px;" onclick="openAdminModal(${p.id})">Изменить</button> <button class="btn-danger btn-sm" onclick="deleteProduct(${p.id})">Удалить</button></div>`
                 : '';
 
             html += `<div class="product-card" id="pc-${p.id}">
@@ -376,11 +434,11 @@ async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
                 <button ${page === data.pages ? 'disabled' : ''} onclick="loadCatalog(currentCategory, currentVendor, currentSearch, ${page + 1})">Вперед →</button>
             </div>`;
         }
-        
+
         html += `</section></div>`;
-        
+
         content.innerHTML = html;
-        
+
         // Восстанавливаем фокус в поле поиска, если мы печатали
         if (search) {
             const searchInput = document.getElementById('search-input');
@@ -391,8 +449,8 @@ async function loadCatalog(category = '', vendor = '', search = '', page = 1) {
             }
         }
 
-    } catch(e) { 
-        content.innerHTML = '<div style="color:red; text-align:center; padding: 3rem;">Ошибка загрузки каталога</div>'; 
+    } catch(e) {
+        content.innerHTML = '<div style="color:red; text-align:center; padding: 3rem;">Ошибка загрузки каталога</div>';
     }
 }
 
@@ -407,27 +465,26 @@ function handleSearch(value) {
 function showProductPage(id) {
     const p = currentProducts.find(x => x.id === id);
     if (!p) return;
-    
+
     // Собираем все картинки: главную и дополнительные
     const allImages = [];
     if (p.image_url) allImages.push(p.image_url);
     if (p.images && p.images.length) allImages.push(...p.images);
-    
+
     const mainImgSrc = allImages.length > 0 ? escapeHTML(allImages[0]) : null;
-    
+
     // Генерируем HTML для миниатюр
     let thumbsHtml = '';
     if (allImages.length > 1) {
         thumbsHtml = `<div class="thumbnails">`;
         allImages.forEach((img, idx) => {
-            thumbsHtml += `<img src="${escapeHTML(img)}" class="thumbnail ${idx === 0 ? 'active' : ''}" onclick="switchMainImage(this, '${escapeHTML(img)}')">`;
+            thumbsHtml += `<img src="${escapeHTML(img)}" class="thumbnail ${idx === 0 ? 'active' : ''}" onclick="switchMainImage(this)">`;
         });
         thumbsHtml += `</div>`;
     }
 
     const content = document.getElementById('app-content');
-    const safeModel = escapeHTML(p.model_name).replace(/'/g, "\\'");
-    
+
     content.innerHTML = `
         <div style="padding: 1.5rem 3rem;">
             <button class="btn-primary btn-sm" style="background: #444;" onclick="loadCatalog(currentCategory, currentVendor, currentSearch, currentPage)">← Назад в каталог</button>
@@ -443,13 +500,13 @@ function showProductPage(id) {
                 <div class="product-page-desc">${escapeHTML(p.description).replace(/\n/g, '<br>')}</div>
                 <div class="product-page-price-row">
                     <div class="product-page-price">$${p.price}</div>
-                    <button class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem;" onclick="changeQuantity(${p.id}, '${safeModel}', ${p.price}, 1); showToast('Товар добавлен в корзину');">В корзину</button>
+                    <button class="btn-primary" style="padding: 1rem 2.5rem; font-size: 1.1rem;" onclick="changeQuantity(${p.id}, 1); showToast('Товар добавлен в корзину');">В корзину</button>
                 </div>
             </div>
         </div>
         ${thumbsHtml}
     `;
-    
+
     // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
     // На мобильных скроллим аккуратно к карточке, на ПК — в самый верх
     if (window.innerWidth > 768) {
@@ -461,8 +518,8 @@ function showProductPage(id) {
 }
 
 // Переключение главной картинки при клике на миниатюру
-function switchMainImage(thumbElement, imgSrc) {
-    document.getElementById('main-product-img').src = imgSrc;
+function switchMainImage(thumbElement) {
+    document.getElementById('main-product-img').src = thumbElement.getAttribute('src');
     document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
     thumbElement.classList.add('active');
 }
@@ -482,28 +539,28 @@ function resetZoom(img) {
 }
 
 // --- КОРЗИНА И ОФОРМЛЕНИЕ ЗАКАЗА ---
-function updateCartCount() { 
-    document.getElementById('cart-count').textContent = cart.reduce((s, i) => s + i.quantity, 0); 
+function updateCartCount() {
+    document.getElementById('cart-count').textContent = cart.reduce((s, i) => s + i.quantity, 0);
 }
 
-function changeQuantity(id, model, price, delta) {
+function changeQuantity(id, delta) {
+    const product = currentProducts.find(p => p.id === id);
     const item = cart.find(i => i.id === id);
     if (item) {
         item.quantity += delta;
         if (item.quantity <= 0) cart = cart.filter(i => i.id !== id);
-    } else if (delta > 0) {
-        cart.push({ id, model, price, quantity: 1 });
+    } else if (delta > 0 && product) {
+        cart.push({ id: product.id, model: product.model_name, price: product.price, quantity: 1 });
     }
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
-    
+
     const act = document.getElementById(`c-act-${id}`);
     if (act) {
         const qty = cart.find(i => i.id === id)?.quantity || 0;
-        const safeModel = escapeHTML(model).replace(/'/g, "\\'");
-        act.innerHTML = qty === 0 
-            ? `<button class="btn-primary btn-sm" onclick="changeQuantity(${id}, '${safeModel}', ${price}, 1)">В корзину</button>`
-            : `<div><button class="btn-primary btn-sm" onclick="changeQuantity(${id}, '${safeModel}', ${price}, -1)">-</button> <span style="font-weight:bold; margin:0 5px;">${qty}</span> <button class="btn-primary btn-sm" onclick="changeQuantity(${id}, '${safeModel}', ${price}, 1)">+</button></div>`;
+        act.innerHTML = qty === 0
+            ? `<button class="btn-primary btn-sm" onclick="changeQuantity(${id}, 1)">В корзину</button>`
+            : `<div><button class="btn-primary btn-sm" onclick="changeQuantity(${id}, -1)">-</button> <span style="font-weight:bold; margin:0 5px;">${qty}</span> <button class="btn-primary btn-sm" onclick="changeQuantity(${id}, 1)">+</button></div>`;
     }
 }
 
@@ -533,13 +590,14 @@ function closeCartModal() { document.getElementById('cart-modal').style.display 
 
 async function openCheckoutModal() {
     document.getElementById('cart-modal').style.display = 'none';
+    await ensureAuthChecked();
     const eIn = document.getElementById('checkout-email');
     const pIn = document.getElementById('checkout-phone');
     const aIn = document.getElementById('checkout-address');
-    
+
     eIn.value = ''; pIn.value = ''; aIn.value = ''; eIn.readOnly = false;
-    
-    if (localStorage.getItem('access_token')) {
+
+    if (currentUser) {
         try {
             const res = await fetchAuth(`/api/profile`);
             if (res.ok) {
@@ -556,19 +614,25 @@ async function openCheckoutModal() {
 
 async function submitOrder(e) {
     e.preventDefault();
+    await ensureAuthChecked();
+    if (!currentUser) {
+        showAuthModal();
+        showToast('Войдите, чтобы оформить заказ', 'error');
+        return;
+    }
     const payload = {
         phone: document.getElementById('checkout-phone').value,
         address: document.getElementById('checkout-address').value,
-        items: cart.map(i => ({ id: i.id, quantity: i.quantity })) 
+        items: cart.map(i => ({ id: i.id, quantity: i.quantity }))
     };
-    
+
     try {
-        const res = await fetchAuth('/api/checkout', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
+        const res = await fetchAuth('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
-        
+
         if (res.ok) {
             showToast('Заказ успешно оформлен!');
             cart = []; localStorage.setItem('cart', JSON.stringify(cart)); updateCartCount();
@@ -582,9 +646,10 @@ async function submitOrder(e) {
 }
 
 // --- АДМИН ПАНЕЛЬ ---
-function loadAdminPanel() {
+async function loadAdminPanel() {
     const contentDiv = document.getElementById('app-content');
-    if (localStorage.getItem('user_role') !== 'admin') {
+    await ensureAuthChecked();
+    if (!currentUser || currentUser.role !== 'admin') {
         contentDiv.innerHTML = '<div style="text-align:center; padding: 3rem; color: red;">Доступ запрещен.</div>';
         return;
     }
@@ -610,28 +675,31 @@ async function loadAdminUsers() {
         const res = await fetchAuth('/api/users');
         if (!res.ok) return;
         const users = await res.json();
+        adminUsersCache = users;
         let html = `<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; text-align:left;"><thead><tr style="background:var(--surface-light);"><th style="padding:1rem; border-bottom:2px solid #ddd;">Email</th><th style="padding:1rem; border-bottom:2px solid #ddd;">Действия</th></tr></thead><tbody>`;
         users.forEach(u => {
             html += `<tr>
                 <td style="padding:1rem; border-bottom:1px solid #eee;"><b>${escapeHTML(u.email)}</b> (${escapeHTML(u.role)})<br><small>${escapeHTML(u.phone || 'нет тел.')}</small></td>
                 <td style="padding:1rem; border-bottom:1px solid #eee;">
-                    <button class="btn-primary btn-sm" style="background:#444;" onclick="openEditUserModal(${u.id},'${escapeHTML(u.email)}','${escapeHTML(u.username)}','${escapeHTML(u.role)}','${escapeHTML(u.phone||'')}','${escapeHTML(u.address||'')}')">Изменить</button>
+                    <button class="btn-primary btn-sm" style="background:#444;" onclick="openEditUserModal(${u.id})">Изменить</button>
                     <button class="btn-danger btn-sm" onclick="deleteUser(${u.id})">Удалить</button>
                 </td>
             </tr>`;
         });
         html += `</tbody></table></div>`;
         document.getElementById('adm-users').innerHTML = html;
-    } catch(e) {}
+    } catch(e) { showToast('Ошибка загрузки пользователей', 'error'); }
 }
 
-function openEditUserModal(id, e, u, r, p, a) {
-    document.getElementById('edit-user-id').value = id;
-    document.getElementById('edit-user-email').value = e;
-    document.getElementById('edit-user-username').value = u;
-    document.getElementById('edit-user-role').value = r;
-    document.getElementById('edit-user-phone').value = p;
-    document.getElementById('edit-user-address').value = a;
+function openEditUserModal(id) {
+    const u = adminUsersCache.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('edit-user-id').value = u.id;
+    document.getElementById('edit-user-email').value = u.email || '';
+    document.getElementById('edit-user-username').value = u.username || '';
+    document.getElementById('edit-user-role').value = u.role || 'user';
+    document.getElementById('edit-user-phone').value = u.phone || '';
+    document.getElementById('edit-user-address').value = u.address || '';
     document.getElementById('edit-user-password').value = '';
     document.getElementById('admin-user-modal').style.display = 'flex';
 }
@@ -702,7 +770,7 @@ async function changeOrderStatus(id, status) {
 function openAdminModal(id=null, ven='Cisco', cat='1') {
     const f = document.getElementById('admin-product-form');
     f.reset(); document.getElementById('prod-image').value = '';
-    
+
     // Очищаем контейнер для старых фото
     const oldImagesContainer = document.getElementById('existing-images-container');
     if (oldImagesContainer) oldImagesContainer.remove();
@@ -725,9 +793,9 @@ function openAdminModal(id=null, ven='Cisco', cat='1') {
             container.id = 'existing-images-container';
             container.style = "grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; padding: 10px; background: #f9f9f9; border-radius: 6px;";
             container.innerHTML = '<span style="width:100%; font-size:0.9rem; color:#666;">Дополнительные фото (нажмите ❌, чтобы удалить):</span>';
-            
+
             p.images.forEach((imgUrl, index) => {
-                // Нам нужно знать ID картинки в БД. 
+                // Нам нужно знать ID картинки в БД.
                 // Для этого в main.py при получении товаров мы добавим id картинок (см. ниже).
                 // Пока используем индекс, но правильнее передавать ID.
                 container.innerHTML += `
@@ -776,7 +844,7 @@ async function submitProduct(e) {
     fd.append('part_number', document.getElementById('prod-pn').value);
     fd.append('description', document.getElementById('prod-desc').value);
     fd.append('price', document.getElementById('prod-price').value);
-    
+
     // Берем ВСЕ выбранные файлы
     const fileInput = document.getElementById('prod-image');
     for (let i = 0; i < fileInput.files.length; i++) {
@@ -790,7 +858,7 @@ async function submitProduct(e) {
         if (res.ok) {
             document.getElementById('admin-product-modal').style.display = 'none';
             showToast('Оборудование сохранено!');
-            loadCatalog(currentCategory, currentVendor, currentSearch, currentPage); 
+            loadCatalog(currentCategory, currentVendor, currentSearch, currentPage);
         } else {
             const err = await res.json();
             showToast(err.detail || 'Ошибка сохранения', 'error');

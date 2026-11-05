@@ -164,6 +164,9 @@ body {
 .dropdown:hover .dropdown-content { display: block; }
 .dropdown:hover .dropbtn { color: var(--accent-crimson); }
 
+/* --- СЧЁТЧИК КОРЗИНЫ --- */
+.badge-red { display: inline-block; min-width: 18px; padding: 1px 6px; border-radius: 10px; background-color: var(--accent-crimson); color: #fff; font-size: 0.75rem; font-weight: 700; text-align: center; line-height: 1.4; }
+
 /* --- СТИЛИ ДЛЯ ВКЛАДОК АВТОРИЗАЦИИ --- */
 .auth-tabs { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 2px solid #eaeaea; padding-bottom: 0.5rem; }
 .auth-tab { background: transparent; border: none; font-size: 1.1rem; font-weight: 600; color: var(--text-graphite); cursor: pointer; padding: 0.5rem 1rem; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -0.5rem; }

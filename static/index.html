@@ -47,10 +47,10 @@
                 </div>
                 <div class="f-col">
                     <h4>Клиентам</h4>
-                    <a href="#">Документация и мануалы</a>
-                    <a href="#">Гарантийное обслуживание</a>
-                    <a href="#">Техническая поддержка 24/7</a>
-                    <a href="#">Политика возврата</a>
+                    <a href="#" onclick="showToast('Раздел в разработке'); return false;">Документация и мануалы</a>
+                    <a href="#" onclick="showToast('Раздел в разработке'); return false;">Гарантийное обслуживание</a>
+                    <a href="#" onclick="showToast('Раздел в разработке'); return false;">Техническая поддержка 24/7</a>
+                    <a href="#" onclick="showToast('Раздел в разработке'); return false;">Политика возврата</a>
                 </div>
                 <div class="f-col">
                     <h4>Наши контакты</h4>
@@ -211,7 +211,12 @@
     <!-- ШАБЛОН ДЛЯ СКЕЛЕТОНОВ (Заглушки при загрузке) -->
     <template id="skeleton-template">
         <div class="catalog-grid">
-            ${'<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>'.repeat(6)}
+            <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>
+            <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>
+            <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>
+            <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>
+            <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>
+            <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div><div class="skeleton-price"></div></div>
         </div>
     </template>
 
