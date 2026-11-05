@@ -142,6 +142,8 @@ body {
 #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
 .toast { background: white; border-left: 4px solid var(--accent-crimson); color: var(--text-main); padding: 1rem 1.5rem; border-radius: 6px; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: space-between; min-width: 250px; animation: slideInRight 0.3s ease forwards; font-weight: 500;}
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* На телефонах toast выезжает сверху: снизу его закрывает экранная клавиатура */
+@keyframes slideInTop { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .toast.fade-out { opacity: 0; transform: translateX(100%); transition: all 0.3s ease; }
 
 /* --- БОКОВОЕ МЕНЮ (САЙДБАР) --- */
@@ -172,6 +174,23 @@ body {
 .auth-tab { background: transparent; border: none; font-size: 1.1rem; font-weight: 600; color: var(--text-graphite); cursor: pointer; padding: 0.5rem 1rem; transition: all 0.3s ease; border-bottom: 2px solid transparent; margin-bottom: -0.5rem; }
 .auth-tab:hover { color: var(--accent-crimson); }
 .auth-tab.active { color: var(--accent-crimson); border-bottom: 2px solid var(--accent-crimson); }
+
+/* Ошибка внутри формы авторизации: видна и на телефоне, когда клавиатура открыта */
+.auth-error {
+    display: none;
+    margin-bottom: 1.2rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid #f2c2bd;
+    border-left: 4px solid #d32f2f;
+    border-radius: 6px;
+    background: #fdecea;
+    color: #8a1c12;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.4;
+    word-break: break-word;
+}
+.auth-error.show { display: block; }
 
 /* --- КНОПКА "ВВЕРХ" --- */
 #scrollToTopBtn {
@@ -246,6 +265,11 @@ body {
     /* Модалки */
     .modal-content { width: 95%; padding: 1.5rem; max-height: 95vh; }
     #admin-product-form { grid-template-columns: 1fr !important; }
+
+    /* Уведомления показываем сверху: снизу их перекрывает экранная клавиатура */
+    #toast-container { top: 10px; bottom: auto; left: 10px; right: 10px; z-index: 3000; align-items: stretch; }
+    .toast { min-width: 0; width: 100%; box-sizing: border-box; animation: slideInTop 0.3s ease forwards; word-break: break-word; }
+    .toast.fade-out { transform: translateY(-120%); opacity: 0; }
 
     /* Корзина */
     #cart-items-container div { flex-direction: column; align-items: flex-start !important; gap: 0.5rem; }

@@ -126,6 +126,7 @@
                 <button class="auth-tab active" onclick="switchAuthTab('login', this)">Вход</button>
                 <button class="auth-tab" onclick="switchAuthTab('register', this)">Регистрация</button>
             </div>
+            <div id="auth-error" class="auth-error" role="alert" aria-live="assertive"></div>
             <form id="login-form" onsubmit="submitLogin(event)">
                 <div class="form-group"><label>Email</label><input type="email" id="login-email" required></div>
                 <div class="form-group"><label>Пароль</label><input type="password" id="login-password" required></div>

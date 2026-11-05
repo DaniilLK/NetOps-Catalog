@@ -74,6 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     }
+    // Ошибку формы входа/регистрации убираем, как только пользователь начал исправлять данные
+    ['login-email', 'login-password', 'reg-email', 'reg-password'].forEach((id) => {
+        const field = document.getElementById(id);
+        if (field) field.addEventListener('input', clearAuthError);
+    });
 });
 
 // --- СИСТЕМА УВЕДОМЛЕНИЙ ---
@@ -92,6 +97,43 @@ function showToast(message, type = 'success') {
         toast.classList.add('fade-out');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// --- ОШИБКИ ФОРМЫ ВХОДА/РЕГИСТРАЦИИ ---
+// На телефоне toast может оказаться за экранной клавиатурой, поэтому сообщение
+// дублируем прямо в модалке — оно видно всегда.
+function clearAuthError() {
+    const box = document.getElementById('auth-error');
+    if (!box) return;
+    box.classList.remove('show');
+    box.textContent = '';
+}
+
+function showAuthError(message) {
+    // Убираем фокус с поля ввода, чтобы экранная клавиатура закрылась
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
+    const box = document.getElementById('auth-error');
+    if (!box) {
+        showToast(message, 'error');
+        return;
+    }
+    box.textContent = message;
+    box.classList.add('show');
+    if (typeof box.scrollIntoView === 'function') {
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    showToast(message, 'error');
+}
+
+// detail у 422 — массив объектов, у остальных ошибок — строка
+function extractApiError(data, fallback) {
+    if (data && typeof data.detail === 'string') return data.detail;
+    if (data && Array.isArray(data.detail) && data.detail.length && data.detail[0].msg) {
+        return data.detail[0].msg;
+    }
+    return fallback;
 }
 
 function customConfirm(message, onConfirm) {
@@ -176,10 +218,17 @@ async function ensureAuthChecked() {
     return currentUser;
 }
 
-function showAuthModal() { document.getElementById('auth-modal').style.display = 'flex'; }
-function closeAuthModal() { document.getElementById('auth-modal').style.display = 'none'; }
+function showAuthModal() {
+    clearAuthError();
+    document.getElementById('auth-modal').style.display = 'flex';
+}
+function closeAuthModal() {
+    clearAuthError();
+    document.getElementById('auth-modal').style.display = 'none';
+}
 
 function switchAuthTab(tab, element) {
+    clearAuthError();
     document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
     document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
@@ -197,6 +246,7 @@ async function logout() {
 
 async function submitLogin(event) {
     event.preventDefault();
+    clearAuthError();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     try {
@@ -204,27 +254,31 @@ async function submitLogin(event) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
             currentUser = { email: data.email, username: data.username, role: data.role };
             authChecked = true;
+            clearAuthError();
             closeAuthModal();
             updateAuthUI();
             showToast("Вход выполнен успешно!");
         } else {
-            showToast(data.detail || "Ошибка входа", "error");
+            showAuthError(extractApiError(data, "Неверный email или пароль"));
         }
-    } catch (e) { showToast("Ошибка сети", "error"); }
+    } catch (e) {
+        showAuthError("Нет соединения с сервером. Проверьте интернет и повторите.");
+    }
 }
 
 async function submitRegister(event) {
     event.preventDefault();
+    clearAuthError();
     const email = document.getElementById('reg-email').value;
     const password = document.getElementById('reg-password').value;
 
     // Клиентская проверка пароля (сервер тоже проверяет)
     if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-        showToast("Пароль должен быть минимум 8 символов, содержать буквы и цифры", "error");
+        showAuthError("Пароль должен быть минимум 8 символов, содержать буквы и цифры");
         return;
     }
 
@@ -233,14 +287,16 @@ async function submitRegister(event) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
             showToast(`Успешно! Никнейм: ${data.username}. Выполните вход.`);
             switchAuthTab('login', document.querySelectorAll('.auth-tab')[0]);
         } else {
-            showToast(data.detail || "Ошибка регистрации", "error");
+            showAuthError(extractApiError(data, "Ошибка регистрации"));
         }
-    } catch (e) { showToast("Ошибка сети", "error"); }
+    } catch (e) {
+        showAuthError("Нет соединения с сервером. Проверьте интернет и повторите.");
+    }
 }
 
 async function loadProfile() {
