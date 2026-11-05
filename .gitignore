@@ -6,3 +6,10 @@ venv/
 p.id
 *.db-wal
 *.db-shm
+# Android build: signing key and artifacts must never be committed
+NetOps - Google Play package/
+*.keystore
+*.jks
+*.apk
+*.aab
+signing-key-info.txt
