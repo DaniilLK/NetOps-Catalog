@@ -124,6 +124,7 @@ HSTS появляется только если `COOKIE_SECURE=1`.
 | Симптом | Причина | Что сделать |
 |---|---|---|
 | `bash: line 1: javascript: command not found`, `Exited with status 127` | в Start Command вставлен markdown-блок вместо команды | очистить поле целиком и вставить только команду (шаг 2) |
+| Коммит запушен в GitHub, но сайт отдаёт старый код (нет `x-frame-options`) | Auto-Deploy выключен, либо сервис собран из другой ветки, либо деплой упал и Render держит прежний инстанс | **Manual Deploy → Deploy latest commit**; в **Settings** проверить **Branch = main** и **Auto-Deploy = Yes**; посмотреть **Events** — там причина падения |
 | «Сессия истекла» после каждого захода / выкидывает через 15 минут | не задан `SECRET_KEY` (ключ генерируется случайно при старте) | добавить `SECRET_KEY` (шаг 1) и задеплоить |
 | Вход проходит, но следующее действие даёт 403 «CSRF-токен отсутствует» | в браузере старый `main.js` из кэша | Ctrl+F5; проверить, что задеплоен последний коммит |
 | 429 «Слишком много попыток входа» на пустом месте | все пользователи считаются одним IP прокси | `TRUST_PROXY_HEADERS=1` + флаги `--proxy-headers` в Start Command |
@@ -155,3 +156,21 @@ HSTS появляется только если `COOKIE_SECURE=1`.
 Render сам выдаёт сертификат и редиректит HTTP → HTTPS, настраивать нечего.
 `COOKIE_SECURE=1` безопасно включать только на HTTPS-домене (на localhost по HTTP
 браузер cookie с флагом `Secure` не сохранит).
+
+---
+
+## Результат проверки продакшена (05.11.2026, коммит 4ad3f05)
+
+| Проверка | Результат |
+|---|---|
+| `GET /api/profile` без сессии | `401` + `cache-control: no-store`, `x-frame-options: DENY`, `x-content-type-options: nosniff`, `referrer-policy: no-referrer`, `permissions-policy`, `content-security-policy`, `strict-transport-security: max-age=31536000` |
+| `POST /api/checkout` с `Origin: https://evil.example` | `403` «Запрос с недопустимого источника» |
+| `POST /api/checkout` без `Origin` и без `X-CSRF-Token` | `403` «CSRF-токен отсутствует или неверен» |
+| `POST /api/logout` | `Set-Cookie: access_token=""; HttpOnly; Secure; SameSite=strict; Max-Age=0` и `csrf_token=""; Secure; SameSite=strict` |
+| 11 неудачных логинов подряд | `401` ×10, затем `429` «Слишком много попыток входа» |
+| `/main.js` | есть `X-CSRF-Token`, `localStorage` — только для `cart` |
+| `GET /` и `GET /api/products` | `200` |
+
+Вывод: `SECRET_KEY`, `COOKIE_SECURE=1`, `TRUST_PROXY_HEADERS=1` на сервисе заданы,
+новые middleware работают в проде. Лимит попыток входа хранится в памяти процесса,
+поэтому очищается при каждом рестарте/деплое сервиса.
