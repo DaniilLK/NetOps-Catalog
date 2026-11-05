@@ -70,6 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
     checkAuthStatus();
     updateCartCount();
     renderHomePage();
+    // PWA/TWA: service worker кэширует только оболочку, нужен для установки приложения
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    }
 });
 
 // --- СИСТЕМА УВЕДОМЛЕНИЙ ---

@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.daniilk.netopscatalog",
+      "sha256_cert_fingerprints": [
+        "ВСТАВЬТЕ_SHA256_ОТПЕЧАТОК_ИЗ_PWABUILDER"
+      ]
+    }
+  }
+]
